@@ -12,9 +12,7 @@ import com.tavern.bartender.models.OrdersDTO;
 
 @Service
 public class OrderingServiceImpl implements OrderingService{
-
-	//private static Logger LOGGER = LoggerFactory.getLogger(OrderController.class);
-	
+ 
 	@Override
 	public CompletableFuture<Void> serveOrder(OrdersDTO orderDetails, Integer prepTimeInSeconds) {
 		return CompletableFuture.runAsync(()-> {
