@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -23,63 +24,93 @@ import com.tavern.bartender.models.OrdersDTO;
 import com.tavern.bartender.models.OrdersWrapper;
 import com.tavern.bartender.service.OrderingService;
 
+import ch.qos.logback.classic.Level;
+
 @RestController
 @RequestMapping("/ordering-api")
 public class OrderController {
 	
-	private static Logger LOGGER = LoggerFactory.getLogger(OrderController.class);
+	private static Logger logger = LoggerFactory.getLogger(OrderController.class);
 	
 	@Autowired 
 	OrderingService orderingService;
 	
-	static List<OrdersDTO> orderlist = new ArrayList<OrdersDTO>();
+	private static List<OrdersDTO> orderlist = new ArrayList<>();
+	private static AtomicInteger beerCounter = new AtomicInteger(0);
+	private static AtomicInteger drinkCounter = new AtomicInteger(0);
 	
 	@PostMapping(value="/customers/{customerId}/orders/{drinkType}")
-	public ResponseEntity<?> serveCustomerOrder(
+	public ResponseEntity<String> serveCustomerOrder(
 		  @PathVariable(name="customerId", required=true) long customerId
 		 ,@PathVariable(name="drinkType", required=true)  String drinkType
 		 ,@RequestParam(name="prepTimeInSeconds", required=false, defaultValue="5") Integer prepTimeInSeconds
-		 ,HttpServletRequest request) throws Exception
+		 ,HttpServletRequest request)
 	{
-		StringBuilder requestInfo = new StringBuilder();
-		requestInfo.append(Instant.now() + ": Request method:  "+ request.getMethod());
-		requestInfo.append(", Request URI: " + request.getRequestURI());
-		requestInfo.append(request.getQueryString() != null ? "?"+request.getQueryString(): "");
 		
-		LOGGER.info(requestInfo.toString());
-	
-		if(!(drinkType.trim().toUpperCase().equals("BEER") || drinkType.trim().toUpperCase().equals("DRINK"))){
-			LOGGER.error(Instant.now() + ": Status Code: " + HttpStatus.TOO_MANY_REQUESTS + " , Message: " + "Order is not accepted at the moment");
-			return new ResponseEntity<String>("Order is not accepted at the moment", HttpStatus.TOO_MANY_REQUESTS);
+		logger.info("{} : Request method: {} , Request URI: {}{} "
+				, Instant.now() , request.getMethod()
+				, request.getRequestURI(), request.getQueryString() != null ? "?"+request.getQueryString(): "");
+		
+		if(drinkType.trim().equalsIgnoreCase("BEER")) {
+			if(beerCounter.get() >=2) {
+				logger.error("{} : Status Code: {} , Message: Cannot accept orders at the moment.", Instant.now() , HttpStatus.TOO_MANY_REQUESTS);
+				return new ResponseEntity<>("Cannot accept orders at the moment", HttpStatus.TOO_MANY_REQUESTS);
+			}
+			  
+			beerCounter.incrementAndGet();
+		}else if(drinkType.trim().equalsIgnoreCase("DRINK")){
+			  
+			if(drinkCounter.get() >= 1) {
+				logger.error("{} : Status Code: {} , Message: Cannot accept orders at the moment.", Instant.now() , HttpStatus.TOO_MANY_REQUESTS);
+				return new ResponseEntity<>("Cannot accept orders at the moment", HttpStatus.TOO_MANY_REQUESTS);
+  		    }
+			
+			drinkCounter.incrementAndGet();
+		}else{
+			logger.error("{} : Status Code: {} , Message: Order is not on the menu.", Instant.now() , HttpStatus.BAD_REQUEST);
+			return new ResponseEntity<>("Order is not on the menu.", HttpStatus.BAD_REQUEST);
 		}
 		
 		OrdersDTO orderDetails = new OrdersDTO();
 		orderDetails.setCustomerId(customerId);
 		orderDetails.setDrinkType(drinkType);
 		
-		LOGGER.info(Instant.now() + ": Preparing Order: " + drinkType);
+		logger.info("{} : Preparing Order: {}", Instant.now() , drinkType);
 		
 		CompletableFuture<Void> serving = orderingService.serveOrder(orderDetails, prepTimeInSeconds);
 		
 		serving.whenComplete((result, exception) -> {
+			
+			if(drinkType.trim().equalsIgnoreCase("BEER")) {
+				beerCounter.decrementAndGet();
+			}else{
+				drinkCounter.decrementAndGet();
+			}
+			
 			if(exception !=null) {
-				LOGGER.error(Instant.now() + ": Order processing failed.");
+				logger.error(String.format("%s : Order processing failed.", Instant.now()));
 			}else {
 				orderlist.add(orderDetails);
-				LOGGER.info(Instant.now() + ": Order is served.");
+				logger.info(String.format("%s : %s Order is served.", Instant.now(), drinkType));
 			}
 		});
 		
-		return new ResponseEntity<String>("Order will be served: " + drinkType, HttpStatus.OK);
+		return new ResponseEntity<>("Order will be served: " + drinkType, HttpStatus.OK);
 	}
 	
 	@GetMapping(value="/orders")
-	public ResponseEntity<?> getOrders(){
-	
+	public ResponseEntity<OrdersWrapper> getOrders(HttpServletRequest request){
+	    
+		logger.info("{} : Request method: {} , Request URI: {}"
+				, Instant.now() , request.getMethod()
+				, request.getRequestURI());
+		
 		OrdersWrapper wrapper = new OrdersWrapper();
 		wrapper.setOrdersList(orderlist);
-		return new ResponseEntity<OrdersWrapper>(wrapper, HttpStatus.OK);
+		
+		logger.info("{} : Return Code: {}", Instant.now(), HttpStatus.OK);
+		return new ResponseEntity<>(wrapper, HttpStatus.OK);
 		
 	}
-	
+		
 }
