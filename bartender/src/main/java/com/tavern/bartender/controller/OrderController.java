@@ -1,6 +1,7 @@
 package com.tavern.bartender.controller;
 
-import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -24,8 +25,6 @@ import com.tavern.bartender.models.OrdersDTO;
 import com.tavern.bartender.models.OrdersWrapper;
 import com.tavern.bartender.service.OrderingService;
 
-import ch.qos.logback.classic.Level;
-
 @RestController
 @RequestMapping("/ordering-api")
 public class OrderController {
@@ -38,6 +37,8 @@ public class OrderController {
 	private static List<OrdersDTO> orderlist = new ArrayList<>();
 	private static AtomicInteger beerCounter = new AtomicInteger(0);
 	private static AtomicInteger drinkCounter = new AtomicInteger(0);
+	private DateTimeFormatter logTimestamp = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+	
 	
 	@PostMapping(value="/customers/{customerId}/orders/{drinkType}")
 	public ResponseEntity<String> serveCustomerOrder(
@@ -46,14 +47,13 @@ public class OrderController {
 		 ,@RequestParam(name="prepTimeInSeconds", required=false, defaultValue="5") Integer prepTimeInSeconds
 		 ,HttpServletRequest request)
 	{
-		
 		logger.info("{} : Request method: {} , Request URI: {}{} "
-				, Instant.now() , request.getMethod()
+				, ZonedDateTime.now().format(logTimestamp), request.getMethod()
 				, request.getRequestURI(), request.getQueryString() != null ? "?"+request.getQueryString(): "");
 		
 		if(drinkType.trim().equalsIgnoreCase("BEER")) {
 			if(beerCounter.get() >=2) {
-				logger.error("{} : Status Code: {} , Message: Cannot accept orders at the moment.", Instant.now() , HttpStatus.TOO_MANY_REQUESTS);
+				logger.error("{} : Status Code: {} , Message: Cannot accept orders at the moment.", ZonedDateTime.now().format(logTimestamp) , HttpStatus.TOO_MANY_REQUESTS);
 				return new ResponseEntity<>("Cannot accept orders at the moment", HttpStatus.TOO_MANY_REQUESTS);
 			}
 			  
@@ -61,13 +61,13 @@ public class OrderController {
 		}else if(drinkType.trim().equalsIgnoreCase("DRINK")){
 			  
 			if(drinkCounter.get() >= 1) {
-				logger.error("{} : Status Code: {} , Message: Cannot accept orders at the moment.", Instant.now() , HttpStatus.TOO_MANY_REQUESTS);
+				logger.error("{} : Status Code: {} , Message: Cannot accept orders at the moment.", ZonedDateTime.now().format(logTimestamp) , HttpStatus.TOO_MANY_REQUESTS);
 				return new ResponseEntity<>("Cannot accept orders at the moment", HttpStatus.TOO_MANY_REQUESTS);
   		    }
 			
 			drinkCounter.incrementAndGet();
 		}else{
-			logger.error("{} : Status Code: {} , Message: Order is not on the menu.", Instant.now() , HttpStatus.BAD_REQUEST);
+			logger.error("{} : Status Code: {} , Message: Order is not on the menu.", ZonedDateTime.now().format(logTimestamp) , HttpStatus.BAD_REQUEST);
 			return new ResponseEntity<>("Order is not on the menu.", HttpStatus.BAD_REQUEST);
 		}
 		
@@ -75,7 +75,7 @@ public class OrderController {
 		orderDetails.setCustomerId(customerId);
 		orderDetails.setDrinkType(drinkType);
 		
-		logger.info("{} : Preparing Order: {}", Instant.now() , drinkType);
+		logger.info("{} : Preparing Order: {}", ZonedDateTime.now().format(logTimestamp) , drinkType);
 		
 		CompletableFuture<Void> serving = orderingService.serveOrder(orderDetails, prepTimeInSeconds);
 		
@@ -88,10 +88,10 @@ public class OrderController {
 			}
 			
 			if(exception !=null) {
-				logger.error(String.format("%s : Order processing failed.", Instant.now()));
+				logger.error(String.format("%s : Order processing failed.", ZonedDateTime.now().format(logTimestamp)));
 			}else {
 				orderlist.add(orderDetails);
-				logger.info(String.format("%s : %s Order is served.", Instant.now(), drinkType));
+				logger.info(String.format("%s : %s Order is served.", ZonedDateTime.now().format(logTimestamp), drinkType));
 			}
 		});
 		
@@ -102,13 +102,13 @@ public class OrderController {
 	public ResponseEntity<OrdersWrapper> getOrders(HttpServletRequest request){
 	    
 		logger.info("{} : Request method: {} , Request URI: {}"
-				, Instant.now() , request.getMethod()
+				, ZonedDateTime.now().format(logTimestamp), request.getMethod()
 				, request.getRequestURI());
 		
 		OrdersWrapper wrapper = new OrdersWrapper();
 		wrapper.setOrdersList(orderlist);
 		
-		logger.info("{} : Return Code: {}", Instant.now(), HttpStatus.OK);
+		logger.info("{} : Return Code: {}", ZonedDateTime.now().format(logTimestamp), HttpStatus.OK);
 		return new ResponseEntity<>(wrapper, HttpStatus.OK);
 		
 	}
