@@ -15,10 +15,9 @@ public class OrderingServiceImpl implements OrderingService{
 			try {
 				   Integer prepTimeInMilliseconds = prepTimeInSeconds * 1000;
 				    
-					if(orderDetails.getDrinkType().trim().equalsIgnoreCase("BEER")) {
-						prepTimeInMilliseconds = prepTimeInMilliseconds * 2 ;
-					}
-					// Drink type will just use the default
+//					if(orderDetails.getDrinkType().trim().equalsIgnoreCase("BEER")) {
+//						prepTimeInMilliseconds = prepTimeInMilliseconds * 2 ;
+//					}
 				
 					Thread.sleep(prepTimeInMilliseconds);
 					
