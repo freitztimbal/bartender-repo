@@ -87,7 +87,7 @@ public class OrderController {
 				drinkCounter.decrementAndGet();
 			}
 			
-			if(exception !=null) {
+			if(exception !=null || Thread.currentThread().isInterrupted()) {
 				logger.error(String.format("%s : Order processing failed.", ZonedDateTime.now().format(logTimestamp)));
 			}else {
 				orderlist.add(orderDetails);
@@ -107,7 +107,7 @@ public class OrderController {
 		
 		OrdersWrapper wrapper = new OrdersWrapper();
 		wrapper.setOrdersList(orderlist);
-		
+	
 		logger.info("{} : Return Code: {}", ZonedDateTime.now().format(logTimestamp), HttpStatus.OK);
 		return new ResponseEntity<>(wrapper, HttpStatus.OK);
 		
